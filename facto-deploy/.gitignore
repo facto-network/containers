@@ -1,0 +1,70 @@
+# Facto Deployment System - .gitignore
+
+# Output directory contents
+output/logs/
+output/keys/
+output/generated_scripts/
+output/state/
+output/ui/
+
+# SSH keys and certificates
+*.pem
+*.key
+*.crt
+*.pub
+
+# Log files
+*.log
+
+# Configuration with sensitive information
+*secrets*
+*credentials*
+*password*
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+ssh_attempt*.log
+
+# Instance state files
+*.tfstate
+terraform.tfstate*
+
+# User-specific configuration overrides
+config/local/
+config/*.local.conf
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Error outputs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated deployment scripts
+deploy-*.sh
+cleanup-*.sh
+
+# Cached data
+.cache/ 

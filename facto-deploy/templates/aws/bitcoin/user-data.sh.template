@@ -1,0 +1,159 @@
+#!/bin/bash
+# facto node setup script - {{NODE_TYPE}} node on {{PROVIDER}}
+# Generated on {{CREATION_DATE}}
+
+# Log setup steps
+exec > >(tee /var/log/user-data.log) 2>&1
+
+echo "Starting {{NODE_TYPE}} node setup: $(date)"
+
+# Update system
+echo "Updating system packages..."
+apt-get update && apt-get upgrade -y
+
+# Install dependencies
+echo "Installing dependencies..."
+apt-get install -y build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils libboost-all-dev jq
+
+# Download Bitcoin Core
+echo "Downloading Bitcoin Core..."
+wget https://bitcoincore.org/bin/bitcoin-core-25.0/bitcoin-25.0-x86_64-linux-gnu.tar.gz
+
+# Extract and install
+echo "Extracting and installing Bitcoin Core..."
+tar -xzf bitcoin-25.0-x86_64-linux-gnu.tar.gz
+install -m 0755 -o root -g root -t /usr/local/bin bitcoin-25.0/bin/*
+
+# Create bitcoin user
+echo "Creating bitcoin user..."
+useradd -m bitcoin
+
+# Configure Bitcoin
+echo "Configuring Bitcoin..."
+mkdir -p /home/bitcoin/.bitcoin
+cat > /home/bitcoin/.bitcoin/bitcoin.conf << EOF
+# Run on testnet for {{PROJECT_NAME}} development
+testnet=1
+
+# Enable JSON-RPC
+server=1
+rpcuser={{PROJECT_NAME}}verifier
+rpcpassword=$(openssl rand -hex 32)
+
+# Allow RPC connections 
+rpcallowip=127.0.0.1
+# Note: rpcbind is not needed when only allowing local connections
+
+# Index all transactions (needed for verification)
+txindex=1
+
+# Other optimizations
+dbcache=4000
+maxmempool=500
+maxconnections=40
+EOF
+
+# Set permissions
+chown -R bitcoin:bitcoin /home/bitcoin/.bitcoin
+
+# Create systemd service
+echo "Creating systemd service for Bitcoin daemon..."
+cat > /etc/systemd/system/bitcoind.service << EOF
+[Unit]
+Description=Bitcoin daemon
+After=network.target
+
+[Service]
+User=bitcoin
+Group=bitcoin
+Type=forking
+ExecStart=/usr/local/bin/bitcoind -daemon
+Restart=always
+TimeoutStopSec=300
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Create status script
+cat > /usr/local/bin/bitcoin-status << EOF
+#!/bin/bash
+bitcoin-cli -testnet getblockchaininfo | jq
+EOF
+chmod +x /usr/local/bin/bitcoin-status
+
+# Create more detailed monitoring script
+cat > /usr/local/bin/facto-monitor << EOF
+#!/bin/bash
+echo "===== Facto Bitcoin Node Status ====="
+echo "Date: \$(date)"
+echo ""
+
+echo "System Status:"
+echo "-------------"
+echo "Uptime: \$(uptime)"
+echo "Memory: \$(free -h | grep Mem)"
+echo "Disk: \$(df -h / | grep /)"
+echo ""
+
+echo "Bitcoin Process Status:"
+echo "---------------------"
+if systemctl is-active bitcoind > /dev/null; then
+    echo "Bitcoin daemon: RUNNING"
+    
+    # Get detailed process information
+    echo "Process Details:"
+    ps aux | grep bitcoind | grep -v grep | awk '{printf "  PID: %s, CPU: %s%%, MEM: %s%%, Uptime: %s\n", \$2, \$3, \$4, \$10}'
+    
+    # Get basic blockchain info
+    BLOCKCHAIN_INFO=\$(bitcoin-cli -testnet getblockchaininfo 2>/dev/null)
+    if [ \$? -eq 0 ]; then
+        BLOCKS=\$(echo "\$BLOCKCHAIN_INFO" | jq .blocks)
+        HEADERS=\$(echo "\$BLOCKCHAIN_INFO" | jq .headers)
+        PROGRESS=\$(echo "\$BLOCKCHAIN_INFO" | jq .verificationprogress)
+        PROGRESS_PCT=\$(echo "\$PROGRESS * 100" | bc -l | xargs printf "%.2f")
+        
+        echo "Current block: \$BLOCKS / \$HEADERS"
+        echo "Sync progress: \$PROGRESS_PCT%"
+        
+        # Get network info
+        NETWORK_INFO=\$(bitcoin-cli -testnet getnetworkinfo 2>/dev/null)
+        if [ \$? -eq 0 ]; then
+            CONNECTIONS=\$(echo "\$NETWORK_INFO" | jq .connections)
+            echo "Connections: \$CONNECTIONS"
+        fi
+        
+        # Get mempool info
+        MEMPOOL_INFO=\$(bitcoin-cli -testnet getmempoolinfo 2>/dev/null)
+        if [ \$? -eq 0 ]; then
+            TX_COUNT=\$(echo "\$MEMPOOL_INFO" | jq .size)
+            MEMPOOL_BYTES=\$(echo "\$MEMPOOL_INFO" | jq .bytes)
+            echo "Mempool transactions: \$TX_COUNT"
+            echo "Mempool size: \$(echo "\$MEMPOOL_BYTES / 1024 / 1024" | bc)MB"
+        fi
+    else
+        echo "Bitcoin CLI not responding. Node may still be starting."
+    fi
+else
+    echo "Bitcoin daemon: NOT RUNNING"
+    systemctl status bitcoind
+fi
+EOF
+chmod +x /usr/local/bin/facto-monitor
+
+# Create a symbolic link for backward compatibility (for monitoring scripts) 
+ln -s /usr/local/bin/facto-monitor /usr/local/bin/chaincheck-monitor
+
+# Add bc for calculations in the monitor script
+apt-get install -y bc
+
+# Enable and start service
+echo "Enabling and starting Bitcoin daemon..."
+systemctl daemon-reload
+systemctl enable bitcoind
+systemctl start bitcoind
+
+# Create a setup complete flag
+touch /var/lib/facto-setup-complete
+
+echo "{{PROJECT_NAME}} {{NODE_TYPE}} node setup complete: $(date)" 

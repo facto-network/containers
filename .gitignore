@@ -1,0 +1,86 @@
+# Facto Project Root .gitignore
+
+# Build and output directories
+**/output/
+**/dist/
+**/build/
+**/target/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*~
+*.bak
+.*.swp
+
+# Credentials and keys
+*.pem
+*.key
+*.crt
+*.pub
+**/credentials*
+**/secrets*
+**/*password*
+**/.env
+**/.env.*
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+**/Desktop.ini
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.sublime-*
+*.code-workspace
+.project
+.classpath
+.settings/
+nbproject/
+*.iml
+*.ipr
+*.iws
+
+# Package manager files
+**/node_modules/
+**/package-lock.json
+**/yarn.lock
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+
+# Runtime data
+**/pids
+*.pid
+*.seed
+*.pid.lock
+
+# Generated script files
+*-generated.sh
+deploy-*.sh
+cleanup-*.sh
+
+# Terraform/infrastructure state files
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+
+# Chaincheck legacy files
+chaincheck-deploy/
+
+# Backup files
+**/*.backup
+**/*.swp
+**/*.swo
+**/*~
+
+# Allow all .gitkeep files (used to track empty directories)
+!.gitkeep 
